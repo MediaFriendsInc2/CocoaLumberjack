@@ -6,8 +6,13 @@
 #import <mach/host_info.h>
 #import <libkern/OSAtomic.h>
 #import <Availability.h>
+
+#if TARGET_OS_WATCH
+#import <WatchKit/WKInterfaceDevice.h>
+#else
 #if TARGET_OS_IPHONE
-    #import <UIKit/UIDevice.h>
+#import <UIKit/UIDevice.h>
+#endif
 #endif
 
 /**
@@ -132,12 +137,14 @@ static unsigned int numProcessors;
         
         queueSemaphore = dispatch_semaphore_create(LOG_MAX_QUEUE_SIZE);
         
+#if TARGET_OS_WATCH
+        numProcessors=1;
+#else
         // Figure out how many processors are available.
         // This may be used later for an optimization on uniprocessor machines.
         
         host_basic_info_data_t hostInfo;
         mach_msg_type_number_t infoCount;
-        
         infoCount = HOST_BASIC_INFO_COUNT;
         host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hostInfo, &infoCount);
         
@@ -145,6 +152,7 @@ static unsigned int numProcessors;
         unsigned int one    = (unsigned int)(1);
         
         numProcessors = MAX(result, one);
+#endif
         
         NSLogDebug(@"DDLog: numProcessors = %u", numProcessors);
         
@@ -907,6 +915,16 @@ static char *dd_str_copy(const char *str)
 //    dispatch_get_current_queue(void);
 //      __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_6,__MAC_10_9,__IPHONE_4_0,__IPHONE_6_0)
 
+
+#if TARGET_OS_WATCH
+
+// Compiling for WatchOS
+
+#define USE_DISPATCH_CURRENT_QUEUE_LABEL ([[[WKInterfaceDevice currentDevice] systemVersion] floatValue] >= 2.0)
+#define USE_DISPATCH_GET_CURRENT_QUEUE ([[[WKInterfaceDevice currentDevice] systemVersion] floatValue] >= 2.0)
+
+#else
+
 #if TARGET_OS_IPHONE
 
   // Compiling for iOS
@@ -933,6 +951,8 @@ static char *dd_str_copy(const char *str)
     #define USE_DISPATCH_GET_CURRENT_QUEUE  (![NSTimer instancesRespondToSelector:@selector(tolerance)]) // < OS X 10.9
 
   #endif
+
+#endif
 
 #endif
 
